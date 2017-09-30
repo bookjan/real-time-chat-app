@@ -25,8 +25,12 @@
         form input {
             border: 0;
             padding: 10px;
-            width: 90%;
+            width: 80%;
             margin-right: .5%;
+        }
+        
+        form input#upload_input {
+            width: 9%;
         }
         
         form button {
@@ -59,8 +63,12 @@
 <body>
     <ul id="messages"></ul>
     <form action="">
-        <input id="m" autocomplete="off" /><button>Send</button>
+        <input id="m" autocomplete="off" />
+        <button>Send</button>
+        <input type="file" id="upload_input" />
+
     </form>
+    <script src="/siofu/client.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
     <script>
@@ -71,11 +79,40 @@
                 $('#m').val('');
                 return false;
             });
+
             socket.on('chat message', function(msg) {
-                $('#messages').append($('<li>').text(msg));
+                if (msg.type === 'image') {
+                    $('#messages').append($('<li>').html("<a href=" + msg.content + ">Image Download</a>"));
+                } else {
+                    $('#messages').append($('<li>').text(msg));
+                }
+
                 window.scrollTo(0, document.body.scrollHeight);
             });
         });
+        document.addEventListener("DOMContentLoaded", function() {
+
+            // Initialize instances:
+            var socket = io.connect();
+            var siofu = new SocketIOFileUpload(socket);
+
+            // Configure the three ways that SocketIOFileUpload can read files:
+            siofu.listenOnInput(document.getElementById("upload_input"));
+
+
+            // Do something on upload progress:
+            siofu.addEventListener("progress", function(event) {
+                var percent = event.bytesLoaded / event.file.size * 100;
+                console.log("File is", percent.toFixed(2), "percent loaded");
+            });
+
+            // Do something when a file is uploaded:
+            siofu.addEventListener("complete", function(event) {
+                console.log(event.success);
+                console.log(event.file);
+            });
+
+        }, false);
     </script>
 </body>
 

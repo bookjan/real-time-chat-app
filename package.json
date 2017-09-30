@@ -1,9 +1,10 @@
 {
-    "name": "socket-chat-example",
+    "name": "real-time-chat-app",
     "version": "0.0.1",
-    "description": "my first socket.io app",
+    "description": "Real Time Chat App for Code Challenge",
     "dependencies": {
         "express": "^4.15.2",
-        "socket.io": "^1.7.3"
+        "socket.io": "^1.7.3",
+        "socketio-file-upload": "^0.6.0"
     }
 }
