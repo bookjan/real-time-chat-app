@@ -1,36 +1,91 @@
-// Require the libraries:
+const path = require('path');
+const fs = require('fs');
+const uuid = require('uuid');
 const SocketIOFileUpload = require('socketio-file-upload');
-const socketio = require('socket.io');
 const express = require('express');
+const socketio = require('socket.io');
 
-// Make your Express server:
 const app = express()
     .use(SocketIOFileUpload.router)
-    .use(express.static(__dirname + "/public"))
-    .listen(3000);
+    .use(express.static(path.join(__dirname, '/public')))
+    .listen(80);
 
-// Start up Socket.IO:
 const io = socketio.listen(app);
-io.sockets.on("connection", function(socket) {
 
-    // Make an instance of SocketIOFileUpload and listen on this socket:
-    var uploader = new SocketIOFileUpload();
+var onlineUsers = {};
+var onlineCount = 0;
+
+io.on('connection', function (socket) {
+
+    socket
+        .on('login', function (obj) {
+            socket.id = obj.uid;
+
+            if (!onlineUsers.hasOwnProperty(obj.uid)) {
+                onlineUsers[obj.uid] = obj.username;
+                onlineCount++;
+            }
+
+            io.emit('login', {
+                onlineUsers: onlineUsers,
+                onlineCount: onlineCount,
+                user: obj
+            });
+            console.log(obj.username + 'Joined the Chat Room');
+        })
+
+    socket.on('disconnect', function () {
+
+        if (onlineUsers.hasOwnProperty(socket.id)) {
+            const obj = {
+                uid: socket.id,
+                username: onlineUsers[socket.id]
+            };
+
+            delete onlineUsers[socket.id];
+            onlineCount--;
+
+            io.emit('logout', {
+                onlineUsers: onlineUsers,
+                onlineCount: onlineCount,
+                user: obj
+            });
+            console.log(obj.username + 'Left the Chat Room');
+        }
+    })
+
+    const uploader = new SocketIOFileUpload();
     uploader.dir = __dirname + "/public/uploads";
     uploader.listen(socket);
 
-    // Do something when a file is saved:
-    uploader.on("saved", function(event) {
+    uploader.on("saved", function (event) {
         console.log(event.file);
-        downloadLink = '/uploads/' + event.file.name;
-        io.emit('chat message', { type: 'image', content: downloadLink });
+        const extension = event
+            .file
+            .name
+            .split(".")
+            .pop();
+
+        const originalFilePath = path.join(uploader.dir, event.file.name);
+        const newFileName = `${uuid.v4()}.${extension}`;
+        const newFilePath = path.join(uploader.dir, newFileName);
+
+        fs.rename(originalFilePath, newFilePath, function (err) {
+            if (err) 
+                throw err;
+            console.log('renamed conplete');
+
+        });
+        event.file.clientDetail.downloadLink = `/uploads/${newFileName}`;
     });
 
-    // Error handler:
-    uploader.on("error", function(event) {
+    uploader.on("error", function (event) {
         console.log("Error from uploader", event);
     });
 
-    socket.on('chat message', function(msg) {
-        io.emit('chat message', msg);
-    });
+    socket.on('message', function (obj) {
+        io.emit('message', obj);
+        console.log(obj.username + "说:" + obj.message)
+    })
+
 });
